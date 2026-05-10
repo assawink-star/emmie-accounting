@@ -1,0 +1,364 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-title" content="Benz Finance" />
+  <title>Benz Finance Calculator</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(145deg, #0f172a, #111827 45%, #1e293b);
+      color: #111827;
+      min-height: 100vh;
+      padding: 18px;
+    }
+    .app { max-width: 820px; margin: 0 auto; }
+    .hero { color: white; padding: 18px 6px 20px; text-align: center; }
+    .hero h1 { margin: 0; font-size: 30px; letter-spacing: .3px; }
+    .hero p { margin: 8px 0 0; color: #cbd5e1; font-size: 15px; }
+    .card {
+      background: rgba(255,255,255,.96);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 24px 55px rgba(0,0,0,.28);
+      margin-bottom: 16px;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    label {
+      display: block;
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+      margin-bottom: 7px;
+    }
+    input, select {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 18px;
+      background: #f8fafc;
+      outline: none;
+    }
+    input:focus, select:focus {
+      border-color: #2563eb;
+      background: white;
+      box-shadow: 0 0 0 4px rgba(37,99,235,.12);
+    }
+    .full { grid-column: 1 / -1; }
+    .preset-row {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 8px;
+      margin-top: 8px;
+    }
+    .preset {
+      padding: 10px;
+      border-radius: 14px;
+      background: #eef2ff;
+      color: #1e3a8a;
+      font-size: 14px;
+      border: none;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .result {
+      background: linear-gradient(145deg, #111827, #1e293b);
+      color: white;
+      border-radius: 26px;
+      padding: 22px;
+      margin-top: 16px;
+    }
+    .result-title { font-size: 15px; color: #cbd5e1; margin-bottom: 6px; }
+    .monthly {
+      font-size: 42px;
+      font-weight: 900;
+      letter-spacing: -1px;
+      margin-bottom: 14px;
+    }
+    .summary {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+    .mini {
+      background: rgba(255,255,255,.09);
+      border: 1px solid rgba(255,255,255,.11);
+      border-radius: 18px;
+      padding: 13px;
+    }
+    .mini span {
+      display: block;
+      color: #cbd5e1;
+      font-size: 12px;
+      margin-bottom: 4px;
+    }
+    .mini strong { font-size: 18px; }
+    .buttons {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      margin-top: 16px;
+    }
+    button.action {
+      border: none;
+      border-radius: 17px;
+      padding: 15px;
+      font-size: 17px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+    .primary { background: #2563eb; color: white; }
+    .secondary { background: #e5e7eb; color: #111827; }
+    .copybox {
+      width: 100%;
+      min-height: 135px;
+      margin-top: 14px;
+      border-radius: 18px;
+      border: 1px solid #d1d5db;
+      padding: 14px;
+      font-size: 15px;
+      line-height: 1.6;
+      background: #f8fafc;
+      resize: vertical;
+    }
+    .note {
+      font-size: 13px;
+      color: #64748b;
+      line-height: 1.55;
+      margin-top: 12px;
+    }
+    @media (max-width: 650px) {
+      body { padding: 12px; }
+      .grid, .summary, .buttons { grid-template-columns: 1fr; }
+      .monthly { font-size: 34px; }
+      .hero h1 { font-size: 25px; }
+      .preset-row { grid-template-columns: repeat(2, 1fr); }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <section class="hero">
+      <h1>Mercedes-Benz Finance Calculator</h1>
+      <p>คำนวณค่างวดรถ Benz สำหรับเสนอขายลูกค้าแบบรวดเร็ว</p>
+    </section>
+
+    <section class="card">
+      <div class="grid">
+        <div>
+          <label>รุ่นรถ / รายละเอียด</label>
+          <input id="carModel" value="BENZ C220d AV W206 ปี 2023" />
+        </div>
+
+        <div>
+          <label>ราคาขายรถ</label>
+          <input id="price" type="number" value="1890000" inputmode="numeric" />
+        </div>
+
+        <div>
+          <label>เงินดาวน์</label>
+          <input id="down" type="number" value="0" inputmode="numeric" />
+          <select id="downType" style="margin-top:6px;">
+            <option value="amount" selected>ระบุเป็นจำนวนเงิน</option>
+            <option value="percent">ระบุเป็น % ของราคารถ</option>
+          </select>
+          <div class="preset-row">
+            <button class="preset" onclick="setDownPercent(0)">0%</button>
+            <button class="preset" onclick="setDownPercent(10)">10%</button>
+            <button class="preset" onclick="setDownPercent(20)">20%</button>
+            <button class="preset" onclick="setDownPercent(25)">25%</button>
+            <button class="preset" onclick="setDownPercent(30)">30%</button>
+            <button class="preset" onclick="setDownPercent(40)">40%</button>
+            <button class="preset" onclick="setDownPercent(50)">50%</button>
+          </div>
+        </div>
+
+        <div>
+          <label>ดอกเบี้ยต่อปี (%)</label>
+          <input id="rate" type="number" step="0.01" value="4.99" inputmode="decimal" />
+        </div>
+
+        <div>
+          <label>ระยะผ่อน</label>
+          <select id="term">
+            <option value="12">1 ปี / 12 เดือน</option>
+            <option value="24">2 ปี / 24 เดือน</option>
+            <option value="36">3 ปี / 36 เดือน</option>
+            <option value="48">4 ปี / 48 เดือน</option>
+            <option value="60">5 ปี / 60 เดือน</option>
+            <option value="72" selected>6 ปี / 72 เดือน</option>
+            <option value="84">7 ปี / 84 เดือน</option>
+          </select>
+        </div>
+
+        <div>
+          <label>VAT รถมือสอง</label>
+          <select id="vatMode">
+            <option value="none" selected>ไม่คิด VAT</option>
+            <option value="finance">คิด VAT 7% จากยอดจัด และรวมในยอดจัด</option>
+          </select>
+        </div>
+
+        <div class="full">
+          <label>สูตรคำนวณ</label>
+          <select id="method">
+            <option value="flat" selected>Flat Rate แบบไฟแนนซ์รถยนต์ไทยทั่วไป</option>
+            <option value="effective">Effective Rate แบบลดต้นลดดอก</option>
+          </select>
+          <div class="preset-row">
+            <button class="preset" onclick="setRate(2.69)">2.69%</button>
+            <button class="preset" onclick="setRate(3.99)">3.99%</button>
+            <button class="preset" onclick="setRate(4.99)">4.99%</button>
+            <button class="preset" onclick="setRate(7.95)">7.95%</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="result">
+        <div class="result-title">ค่างวดประมาณ / เดือน</div>
+        <div class="monthly" id="monthly">0 บาท</div>
+        <div class="summary">
+          <div class="mini"><span>เงินดาวน์เป็นบาท</span><strong id="downAmount">0</strong></div>
+          <div class="mini"><span>ยอดจัดก่อน VAT</span><strong id="baseFinanceAmount">0</strong></div>
+          <div class="mini"><span>VAT ประมาณ</span><strong id="vatAmount">0</strong></div>
+          <div class="mini"><span>ยอดจัดรวม VAT</span><strong id="financeAmount">0</strong></div>
+          <div class="mini"><span>ยอดชำระรวม</span><strong id="totalPay">0</strong></div>
+          <div class="mini"><span>ดาวน์คิดเป็น</span><strong id="downPercent">0%</strong></div>
+        </div>
+      </div>
+
+      <div class="buttons">
+        <button class="action primary" onclick="copyText()">คัดลอกข้อความส่งลูกค้า</button>
+        <button class="action secondary" onclick="resetForm()">เริ่มใหม่</button>
+      </div>
+
+      <textarea id="copybox" class="copybox" readonly></textarea>
+      <p class="note">หมายเหตุ: ตัวเลขเป็นการคำนวณเบื้องต้น ลูกค้าต้องรอไฟแนนซ์อนุมัติจริงตามเครดิต อายุรถ ราคา และเงื่อนไขธนาคาร</p>
+    </section>
+  </main>
+
+  <script>
+    const ids = ["carModel", "price", "down", "downType", "rate", "term", "method", "vatMode"];
+    ids.forEach(function(id) {
+      document.getElementById(id).addEventListener("input", calculate);
+      document.getElementById(id).addEventListener("change", calculate);
+    });
+
+    function baht(num) {
+      return Math.round(num || 0).toLocaleString("th-TH") + " บาท";
+    }
+
+    function getNumber(id) {
+      return Number(document.getElementById(id).value) || 0;
+    }
+
+    function calculate() {
+      const model = document.getElementById("carModel").value || "รถยนต์";
+      const price = getNumber("price");
+      const downInput = getNumber("down");
+      const downType = document.getElementById("downType").value;
+      const down = downType === "percent" ? price * downInput / 100 : downInput;
+      const rate = getNumber("rate");
+      const term = getNumber("term");
+      const method = document.getElementById("method").value;
+      const vatMode = document.getElementById("vatMode").value;
+
+      const baseFinance = Math.max(price - down, 0);
+
+      let vat = 0;
+      if (vatMode === "finance") {
+        vat = baseFinance * 7 / 100;
+      }
+
+      const finance = baseFinance + vat;
+
+      let monthly = 0;
+      let totalPay = 0;
+
+      if (method === "flat") {
+        const years = term / 12;
+        const totalInterest = finance * (rate / 100) * years;
+        totalPay = finance + totalInterest;
+        monthly = totalPay / term;
+      } else {
+        const monthlyRate = rate / 100 / 12;
+        monthly = monthlyRate === 0 ? finance / term : finance * monthlyRate / (1 - Math.pow(1 + monthlyRate, -term));
+        totalPay = monthly * term;
+      }
+
+      const downPct = price > 0 ? (down / price) * 100 : 0;
+      const vatText = vatMode === "finance" ? "รวม VAT 7% ในยอดจัดแล้ว" : "ไม่คิด VAT";
+
+      document.getElementById("monthly").textContent = baht(monthly);
+      document.getElementById("downAmount").textContent = baht(down);
+      document.getElementById("baseFinanceAmount").textContent = baht(baseFinance);
+      document.getElementById("vatAmount").textContent = baht(vat);
+      document.getElementById("financeAmount").textContent = baht(finance);
+      document.getElementById("totalPay").textContent = baht(totalPay);
+      document.getElementById("downPercent").textContent = downPct.toFixed(1) + "%";
+
+      const msg = `🚘 ${model}
+ราคาขาย ${baht(price)}
+ดาวน์ ${baht(down)} (${downPct.toFixed(1)}%)
+ยอดจัดก่อน VAT ${baht(baseFinance)}
+VAT ${baht(vat)}
+ยอดจัดไฟแนนซ์รวม VAT ${baht(finance)}
+ดอกเบี้ยประมาณ ${rate}% ต่อปี
+ผ่อน ${term} เดือน ประมาณ ${baht(monthly)} / เดือน
+สถานะ VAT: ${vatText}
+
+หมายเหตุ: ค่างวดเป็นตัวเลขประมาณการเบื้องต้น ขึ้นอยู่กับผลอนุมัติและเงื่อนไขไฟแนนซ์จริงค่ะ`;
+
+      document.getElementById("copybox").value = msg;
+    }
+
+    function setDownPercent(value) {
+      document.getElementById("downType").value = "percent";
+      document.getElementById("down").value = value;
+      calculate();
+    }
+
+    function setRate(value) {
+      document.getElementById("rate").value = value;
+      calculate();
+    }
+
+    function copyText() {
+      const box = document.getElementById("copybox");
+      box.select();
+      box.setSelectionRange(0, 99999);
+
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(box.value).then(function() {
+          alert("คัดลอกข้อความแล้วค่ะ");
+        }).catch(function() {
+          document.execCommand("copy");
+          alert("คัดลอกข้อความแล้วค่ะ");
+        });
+      } else {
+        document.execCommand("copy");
+        alert("คัดลอกข้อความแล้วค่ะ");
+      }
+    }
+
+    function resetForm() {
+      document.getElementById("carModel").value = "BENZ C220d AV W206 ปี 2023";
+      document.getElementById("price").value = 1890000;
+      document.getElementById("down").value = 0;
+      document.getElementById("downType").value = "amount";
+      document.getElementById("rate").value = 4.99;
+      document.getElementById("term").value = 72;
+      document.getElementById("vatMode").value = "none";
+      document.getElementById("method").value = "flat";
+      calculate();
+    }
+
+    calculate();
+  </script>
+</body>
+</html>
