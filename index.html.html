@@ -1,0 +1,157 @@
+<!doctype html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>EMMIE Used Car Accounting Online</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',sans-serif;background:#f5f7fb;color:#1f2937}
+header{background:linear-gradient(135deg,#111827,#1f3b73);color:#fff;padding:22px 18px;border-bottom-left-radius:28px;border-bottom-right-radius:28px;box-shadow:0 10px 25px #0002}
+header h1{margin:0;font-size:25px}header p{margin:6px 0 0;opacity:.86}
+.container{max-width:1280px;margin:0 auto;padding:16px}.card{background:#fff;border:1px solid #e5e7eb;border-radius:22px;padding:16px;margin-bottom:14px;box-shadow:0 8px 22px #0f172a14}
+.grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.label{color:#6b7280;font-size:13px}.value{font-size:23px;font-weight:800;margin-top:5px}
+.profit{color:#047857}.loss{color:#dc2626}button,.tab{border:0;padding:11px 14px;border-radius:14px;background:#e5e7eb;font-weight:700;cursor:pointer;font-size:15px}
+.primary,.tab.active{background:#1f3b73;color:#fff}.green{background:#047857;color:#fff}.orange{background:#b45309;color:#fff}.danger{background:#fee2e2;color:#991b1b}.muted{background:#f3f4f6;color:#374151}
+.tabs,.actions{display:flex;gap:8px;flex-wrap:wrap;margin:14px 0}.section{display:none}.section.active{display:block}
+form{display:grid;grid-template-columns:repeat(3,1fr);gap:12px}.field{display:flex;flex-direction:column;gap:6px}.full{grid-column:1/-1}
+label{font-size:13px;color:#4b5563;font-weight:700}input,select,textarea{width:100%;padding:12px;border-radius:14px;border:1px solid #d1d5db;font-size:16px;background:#fff}textarea{min-height:45px}
+table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:11px;border-bottom:1px solid #e5e7eb;text-align:left;vertical-align:top}th{background:#f9fafb}.right{text-align:right}
+.note{color:#6b7280;font-size:13px;line-height:1.5}.badge{display:inline-block;padding:5px 9px;border-radius:999px;font-weight:800;font-size:12px}.income{background:#dcfce7;color:#166534}.expense{background:#fee2e2;color:#991b1b}
+.filter{display:grid;grid-template-columns:170px 170px 1fr;gap:10px;align-items:start}.checks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;max-height:230px;overflow:auto;padding:8px;border:1px solid #e5e7eb;border-radius:16px;background:#fafafa}
+.checkitem{display:flex;gap:8px;align-items:center;background:#fff;padding:8px;border-radius:12px;border:1px solid #eee}.checkitem input{width:auto}
+.report-head{display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap}.subbox{border:1px solid #e5e7eb;border-radius:18px;padding:14px;margin-top:14px;background:#fff}
+@media(max-width:900px){.grid{grid-template-columns:repeat(2,1fr)}form,.filter{grid-template-columns:1fr}.checks{grid-template-columns:1fr}.container{padding:12px}table{font-size:14px}th,td{padding:8px}}
+@media print{header,.tabs,form,.filter,.no-print,.actions{display:none!important}body{background:#fff}.card{box-shadow:none;border:1px solid #ddd}.section{display:none!important}#report{display:block!important}}
+</style>
+</head>
+<body>
+<header><h1>EMMIE Used Car Accounting Online</h1><p>Auto Connect • Edit ได้ • สรุปแยกรถ/รายเดือน • Export Excel/PDF</p></header>
+<main class="container">
+<div class="card no-print"><b>สถานะ Online:</b> <span id="onlineStatus">กำลังเชื่อมต่อ...</span>
+<div class="actions"><button class="green" onclick="loadData()">Load Online</button><button class="muted" onclick="exportExcel()">Export Excel</button><button class="muted" onclick="printReport()">Print / Save PDF</button></div></div>
+
+<div class="card filter">
+ <div class="field"><label>เดือนเริ่มต้น</label><input type="month" id="monthStart"></div>
+ <div class="field"><label>เดือนสิ้นสุด</label><input type="month" id="monthEnd"></div>
+ <div class="field"><label>ติ๊กเลือกรถสำหรับ “สรุปแยกตามรถ”</label><div class="actions" style="margin:0 0 8px"><button class="muted" onclick="selectAllCars()">เลือกทั้งหมด</button><button class="muted" onclick="clearCarSelection()">ล้างเลือก</button><button class="primary" onclick="renderAll()">ดูสรุป</button></div><div id="carChecks" class="checks"></div><div class="note">สรุปแยกตามรถ = เฉพาะคันที่ติ๊ก | สรุปรายเดือน = รายการทั้งหมดตามช่วงเดือน</div></div>
+</div>
+
+<div class="grid" id="summaryCards"></div>
+
+<div class="tabs no-print"><button class="tab active" onclick="showTab('cars',this)">1. เพิ่มรถ</button><button class="tab" onclick="showTab('tx',this)">2. รายรับ-รายจ่าย</button><button class="tab" onclick="showTab('report',this)">3. หน้าสรุป</button></div>
+
+<section id="cars" class="section active card">
+<h2 id="carFormTitle">เพิ่มข้อมูลรถ</h2>
+<form id="carForm">
+<input type="hidden" id="editingCarId">
+<div class="field"><label>เลขสต๊อก</label><input id="carCode" required placeholder="01"></div>
+<div class="field"><label>รุ่นรถ</label><input id="carModel" required placeholder="BENZ C220d W206"></div>
+<div class="field"><label>ทะเบียน</label><input id="carPlate"></div>
+<div class="field"><label>วันที่ซื้อเข้า</label><input id="buyDate" type="date"></div>
+<div class="field"><label>ราคาซื้อเข้า</label><input id="buyPrice" type="number" step="0.01"></div>
+<div class="field"><label>สถานะ</label><select id="carStatus"><option>อยู่ในสต๊อก</option><option>ขายแล้ว</option></select></div>
+<div class="field full"><label>หมายเหตุ</label><textarea id="carNote"></textarea></div>
+<div class="full actions"><button class="primary" type="submit" id="carSubmitBtn">บันทึกรถ Online</button><button class="muted" type="button" onclick="resetCarForm()">ยกเลิกแก้ไข</button></div>
+</form><div id="carTable"></div>
+</section>
+
+<section id="tx" class="section card">
+<h2 id="txFormTitle">บันทึกรายรับ–รายจ่าย</h2>
+<form id="txForm">
+<input type="hidden" id="editingTxId">
+<div class="field"><label>วันที่</label><input id="txDate" type="date" required></div>
+<div class="field"><label>รถคันที่เกี่ยวข้อง</label><select id="txCar" required></select></div>
+<div class="field"><label>ประเภท</label><select id="txType"><option value="income">รายรับ</option><option value="expense">รายจ่าย</option></select></div>
+<div class="field"><label>หมวดหมู่</label><input id="txCategory" required placeholder="ขายรถ / ซ่อม / โฆษณา"></div>
+<div class="field"><label>จำนวนเงิน</label><input id="txAmount" type="number" step="0.01" required></div>
+<div class="field"><label>วิธีรับ/จ่าย</label><input id="txPay" placeholder="เงินสด / โอน / ไฟแนนซ์"></div>
+<div class="field full"><label>รายละเอียด</label><textarea id="txNote"></textarea></div>
+<div class="full actions"><button class="primary" type="submit" id="txSubmitBtn">บันทึกรายการ Online</button><button class="muted" type="button" onclick="resetTxForm()">ยกเลิกแก้ไข</button></div>
+</form><div id="txTable"></div>
+</section>
+
+<section id="report" class="section card">
+<div class="report-head"><div><h2>หน้าสรุป</h2><p class="note" id="reportScope"></p></div><div class="actions no-print"><button class="muted" onclick="exportExcel()">Export Excel</button><button class="muted" onclick="printReport()">Print / Save PDF</button></div></div>
+<div class="subbox"><h3>1) สรุปแยกตามรถที่เลือก</h3><p class="note" id="selectedCarCount"></p><div id="carPlTable"></div></div>
+<div class="subbox"><h3>2) สรุปรายเดือนตามช่วงเดือนที่เลือกทั้งหมด</h3><p class="note">ส่วนนี้รวมทุกคันที่มีรายการในช่วงเดือน ไม่จำกัดเฉพาะรถที่ติ๊กเลือก</p><div id="monthlyTable"></div></div>
+<div class="subbox"><h3>3) รายการรับ–จ่ายของรถที่เลือก</h3><div id="txReportSelected"></div></div>
+</section>
+</main>
+
+<script>
+const SUPABASE_URL="https://qetmnrwqjvztabgnxsfm.supabase.co", SUPABASE_KEY="sb_publishable_eStjvXkEvzvZVvoxW1Lagg_F9vT3QD1";
+const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const num=n=>Number(n||0);
+const today=new Date().toISOString().slice(0,10), ym=today.slice(0,7);
+let sb=null,cars=[],txs=[];
+monthStart.value=ym; monthEnd.value=ym; txDate.value=today;
+
+function status(t,ok=false){onlineStatus.textContent=t;onlineStatus.style.color=ok?'#047857':'#dc2626'}
+function sortVal(c){let m=String(c.code||c.model||'').match(/\d+/);return m?Number(m[0]):999999999}
+function sortCars(list){return [...list].sort((a,b)=>sortVal(a)-sortVal(b)||String(a.code).localeCompare(String(b.code),'th',{numeric:true}))}
+function connect(){if(!window.supabase){status('ไม่มี Internet / โหลด Supabase ไม่ได้');return false} sb=window.supabase.createClient(SUPABASE_URL,SUPABASE_KEY);status('เชื่อมต่อแล้ว',true);return true}
+
+async function loadData(){
+ if(!sb&&!connect())return; status('กำลัง Load Online...');
+ let cr=await sb.from('cars').select('*').order('created_at',{ascending:false});
+ if(cr.error){alert('โหลดรถไม่ได้: '+cr.error.message);status('Load ไม่สำเร็จ');return}
+ let tr=await sb.from('transactions').select('*').order('date',{ascending:false});
+ if(tr.error){alert('โหลดรายการไม่ได้: '+tr.error.message);status('Load ไม่สำเร็จ');return}
+ cars=sortCars((cr.data||[]).map(c=>({id:c.id,code:c.code||'',model:c.model||'',plate:c.plate||'',buyDate:c.buy_date||'',buyPrice:num(c.buy_price),status:c.status||'',note:c.note||''})));
+ txs=(tr.data||[]).map(t=>({id:t.id,date:t.date||'',carId:t.car_id||'',type:t.type||'expense',category:t.category||'',amount:num(t.amount),pay:t.pay||'',note:t.note||''}));
+ status('Online: Load เรียบร้อย',true); renderAll();
+}
+
+function showTab(id,btn){document.querySelectorAll('.section').forEach(s=>s.classList.remove('active'));document.getElementById(id).classList.add('active');document.querySelectorAll('.tab').forEach(t=>t.classList.remove('active'));btn.classList.add('active');renderAll()}
+function monthInRange(d){if(!d)return false;let m=d.slice(0,7);return(!monthStart.value||m>=monthStart.value)&&(!monthEnd.value||m<=monthEnd.value)}
+function selectedIds(){let ids=[...document.querySelectorAll('.car-check:checked')].map(x=>x.value);return ids.length?ids:cars.map(c=>c.id)}
+function selectedCars(){let ids=selectedIds();return sortCars(cars.filter(c=>ids.includes(c.id)))}
+function selectedTxs(){let ids=selectedIds();return txs.filter(t=>monthInRange(t.date)&&ids.includes(t.carId))}
+function monthlyAllTxs(){return txs.filter(t=>monthInRange(t.date))}
+
+function renderChecks(){
+ let old=new Set([...document.querySelectorAll('.car-check:checked')].map(x=>x.value));
+ if(!old.size) old=new Set(cars.map(c=>c.id));
+ carChecks.innerHTML=sortCars(cars).map(c=>`<label class="checkitem"><input class="car-check" type="checkbox" value="${c.id}" ${old.has(c.id)?'checked':''} onchange="renderAll()"> <span>${c.code} - ${c.model}<br><span class="note">${c.status}</span></span></label>`).join('')||'<p class="note">ยังไม่มีรถ</p>';
+}
+function selectAllCars(){document.querySelectorAll('.car-check').forEach(x=>x.checked=true);renderAll()}
+function clearCarSelection(){document.querySelectorAll('.car-check').forEach(x=>x.checked=false);renderAll()}
+
+function renderSelects(){txCar.innerHTML=sortCars(cars).map(c=>`<option value="${c.id}">${c.code} - ${c.model}</option>`).join('')||'<option value="">กรุณาเพิ่มรถก่อน</option>'}
+function renderSummary(){
+ let stx=selectedTxs(), sc=selectedCars(), inc=stx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0), exp=stx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0), cost=sc.reduce((s,c)=>s+c.buyPrice,0), net=inc-exp-cost;
+ summaryCards.innerHTML=`<div class="card"><div class="label">รายรับรถที่เลือก</div><div class="value profit">฿${money(inc)}</div></div><div class="card"><div class="label">รายจ่ายรถที่เลือก</div><div class="value loss">฿${money(exp)}</div></div><div class="card"><div class="label">ต้นทุนรถที่เลือก</div><div class="value">฿${money(cost)}</div></div><div class="card"><div class="label">กำไรสุทธิรถที่เลือก</div><div class="value ${net>=0?'profit':'loss'}">฿${money(net)}</div></div>`;
+ reportScope.textContent=`ช่วงเดือน ${monthStart.value} ถึง ${monthEnd.value}`;
+ selectedCarCount.textContent=`เลือกไว้ ${sc.length} คัน: ${sc.map(c=>c.code).join(', ')||'-'}`;
+}
+function renderCars(){
+ carTable.innerHTML=cars.length?`<table><thead><tr><th>สต๊อก</th><th>รุ่น</th><th>ทะเบียน</th><th class="right">ซื้อเข้า</th><th>สถานะ</th><th class="no-print">จัดการ</th></tr></thead><tbody>${sortCars(cars).map(c=>`<tr><td>${c.code}</td><td>${c.model}<br><span class="note">${c.note}</span></td><td>${c.plate||'-'}</td><td class="right">${money(c.buyPrice)}</td><td>${c.status}</td><td class="no-print"><button class="muted" onclick="editCar('${c.id}')">แก้ไข</button> <button class="danger" onclick="deleteCar('${c.id}')">ลบ</button></td></tr>`).join('')}</tbody></table>`:'<p class="note">ยังไม่มีข้อมูลรถ</p>';
+}
+function txTableHtml(list,actions=true){
+ if(!list.length)return'<p class="note">ยังไม่มีรายการ</p>';
+ return `<table><thead><tr><th>วันที่</th><th>รถ</th><th>ประเภท</th><th>หมวด</th><th class="right">จำนวนเงิน</th><th>รายละเอียด</th>${actions?'<th class="no-print">จัดการ</th>':''}</tr></thead><tbody>${[...list].sort((a,b)=>b.date.localeCompare(a.date)).map(t=>{let c=cars.find(x=>x.id===t.carId);return `<tr><td>${t.date}</td><td>${c?c.code+'<br><span class="note">'+c.model+'</span>':'-'}</td><td><span class="badge ${t.type}">${t.type==='income'?'รายรับ':'รายจ่าย'}</span></td><td>${t.category}</td><td class="right">${money(t.amount)}</td><td>${t.pay}<br><span class="note">${t.note}</span></td>${actions?`<td class="no-print"><button class="muted" onclick="editTx('${t.id}')">แก้ไข</button> <button class="danger" onclick="deleteTx('${t.id}')">ลบ</button></td>`:''}</tr>`}).join('')}</tbody></table>`;
+}
+function renderTxs(){txTable.innerHTML=txTableHtml(selectedTxs(),true);txReportSelected.innerHTML=txTableHtml(selectedTxs(),false)}
+function carPLRows(){let ft=selectedTxs();return selectedCars().map(c=>{let l=ft.filter(t=>t.carId===c.id),inc=l.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0),exp=l.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0),net=inc-exp-c.buyPrice;return{code:c.code,model:c.model,plate:c.plate,buyPrice:c.buyPrice,income:inc,expense:exp,net,status:c.status}})}
+function renderCarPL(){let rows=carPLRows();carPlTable.innerHTML=rows.length?`<table><thead><tr><th>รถที่เลือก</th><th class="right">ต้นทุน</th><th class="right">รายรับเฉพาะคัน</th><th class="right">รายจ่ายเฉพาะคัน</th><th class="right">กำไรสุทธิ</th><th>สถานะ</th></tr></thead><tbody>${rows.map(x=>`<tr><td>${x.code}<br><span class="note">${x.model}</span></td><td class="right">${money(x.buyPrice)}</td><td class="right profit">${money(x.income)}</td><td class="right loss">${money(x.expense)}</td><td class="right ${x.net>=0?'profit':'loss'}">${money(x.net)}</td><td>${x.status}</td></tr>`).join('')}</tbody></table>`:'<p class="note">ยังไม่ได้เลือกรถ</p>'}
+function monthlyRows(){let rows={};monthlyAllTxs().forEach(t=>{let m=t.date.slice(0,7);if(!rows[m])rows[m]={month:m,income:0,expense:0,net:0};if(t.type==='income')rows[m].income+=t.amount;else rows[m].expense+=t.amount});Object.values(rows).forEach(r=>r.net=r.income-r.expense);return Object.values(rows).sort((a,b)=>a.month.localeCompare(b.month))}
+function renderMonthly(){let rows=monthlyRows();monthlyTable.innerHTML=rows.length?`<table><thead><tr><th>เดือน</th><th class="right">รายรับทั้งหมด</th><th class="right">รายจ่ายทั้งหมด</th><th class="right">คงเหลือก่อนต้นทุนซื้อเข้า</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.month}</td><td class="right profit">${money(r.income)}</td><td class="right loss">${money(r.expense)}</td><td class="right ${r.net>=0?'profit':'loss'}">${money(r.net)}</td></tr>`).join('')}</tbody></table>`:'<p class="note">ยังไม่มีข้อมูลรายเดือนในช่วงที่เลือก</p>'}
+
+carForm.onsubmit=async e=>{e.preventDefault();if(!sb&&!connect())return;let id=editingCarId.value,p={code:carCode.value.trim(),model:carModel.value.trim(),plate:carPlate.value.trim(),buy_date:buyDate.value||null,buy_price:num(buyPrice.value),status:carStatus.value,note:carNote.value.trim()};let r=id?await sb.from('cars').update(p).eq('id',id):await sb.from('cars').insert(p);if(r.error){alert('บันทึกรถไม่ได้: '+r.error.message);return}resetCarForm();await loadData()}
+function editCar(id){let c=cars.find(x=>x.id===id);if(!c)return;editingCarId.value=id;carCode.value=c.code;carModel.value=c.model;carPlate.value=c.plate;buyDate.value=c.buyDate;buyPrice.value=c.buyPrice;carStatus.value=c.status;carNote.value=c.note;carFormTitle.textContent='แก้ไขข้อมูลรถ';carSubmitBtn.textContent='อัปเดตรถ Online';document.getElementById('cars').scrollIntoView({behavior:'smooth',block:'start'})}
+function resetCarForm(){carForm.reset();editingCarId.value='';carFormTitle.textContent='เพิ่มข้อมูลรถ';carSubmitBtn.textContent='บันทึกรถ Online'}
+async function deleteCar(id){if(!confirm('ลบรถคันนี้และรายการของรถคันนี้?'))return;if(!sb&&!connect())return;await sb.from('transactions').delete().eq('car_id',id);let r=await sb.from('cars').delete().eq('id',id);if(r.error)alert(r.error.message);await loadData()}
+
+txForm.onsubmit=async e=>{e.preventDefault();if(!sb&&!connect())return;let id=editingTxId.value,p={date:txDate.value,car_id:txCar.value,type:txType.value,category:txCategory.value.trim(),amount:num(txAmount.value),pay:txPay.value.trim(),note:txNote.value.trim()};let r=id?await sb.from('transactions').update(p).eq('id',id):await sb.from('transactions').insert(p);if(r.error){alert('บันทึกรายการไม่ได้: '+r.error.message);return}resetTxForm();await loadData()}
+function editTx(id){let t=txs.find(x=>x.id===id);if(!t)return;editingTxId.value=id;txDate.value=t.date;txCar.value=t.carId;txType.value=t.type;txCategory.value=t.category;txAmount.value=t.amount;txPay.value=t.pay;txNote.value=t.note;txFormTitle.textContent='แก้ไขรายรับ–รายจ่าย';txSubmitBtn.textContent='อัปเดตรายการ Online';showTab('tx',document.querySelectorAll('.tab')[1]);document.getElementById('tx').scrollIntoView({behavior:'smooth',block:'start'})}
+function resetTxForm(){txForm.reset();editingTxId.value='';txDate.value=today;txFormTitle.textContent='บันทึกรายรับ–รายจ่าย';txSubmitBtn.textContent='บันทึกรายการ Online'}
+async function deleteTx(id){if(!confirm('ลบรายการนี้?'))return;if(!sb&&!connect())return;let r=await sb.from('transactions').delete().eq('id',id);if(r.error)alert(r.error.message);await loadData()}
+
+function exportExcel(){let wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(carPLRows().map(r=>({'รถ':r.code,'รุ่น':r.model,'ต้นทุน':r.buyPrice,'รายรับเฉพาะคัน':r.income,'รายจ่ายเฉพาะคัน':r.expense,'กำไรสุทธิ':r.net}))),'สรุปตามรถที่เลือก');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(monthlyRows().map(r=>({'เดือน':r.month,'รายรับทั้งหมด':r.income,'รายจ่ายทั้งหมด':r.expense,'คงเหลือ':r.net}))),'สรุปรายเดือนทั้งหมด');XLSX.writeFile(wb,`EMMIE_Report_${monthStart.value}_${monthEnd.value}.xlsx`)}
+function printReport(){showTab('report',document.querySelectorAll('.tab')[2]);setTimeout(()=>window.print(),150)}
+function renderAll(){renderChecks();renderSelects();renderSummary();renderCars();renderTxs();renderCarPL();renderMonthly()}
+renderAll();connect();loadData();
+</script>
+</body></html>
