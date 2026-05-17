@@ -54,7 +54,21 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:11px;bor
 <div class="field"><label>สถานะ</label><select id="carStatus"><option>อยู่ในสต๊อก</option><option>ขายแล้ว</option></select></div>
 <div class="field full"><label>หมายเหตุ</label><textarea id="carNote"></textarea></div>
 <div class="full actions"><button class="primary" type="submit" id="carSubmitBtn">บันทึกรถ Online</button><button class="muted" type="button" onclick="resetCarForm()">ยกเลิกแก้ไข</button></div>
-</form><div id="carTable"></div>
+</form>
+
+<div class="subbox">
+  <h3>เก็บเอกสารสัญญาซื้อขาย / เอกสารประจำรถ</h3>
+  <form id="docForm">
+    <div class="field"><label>เลือกรถ</label><select id="docCar" required></select></div>
+    <div class="field"><label>ประเภทเอกสาร</label><input id="docType" placeholder="สัญญาซื้อขาย / ใบโอน / สำเนาบัตร / สลิป"></div>
+    <div class="field"><label>เลือกไฟล์หลายไฟล์</label><input id="docFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"></div>
+    <div class="field full"><label>หมายเหตุเอกสาร</label><textarea id="docNote" placeholder="รายละเอียดเอกสาร"></textarea></div>
+    <div class="full actions"><button class="primary" type="submit">อัปโหลดเอกสาร Online</button></div>
+  </form>
+  <div id="docTable"></div>
+</div>
+
+<div id="carTable"></div>
 </section>
 
 <section id="tx" class="section card">
@@ -82,10 +96,10 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:11px;bor
 
 <script>
 const SUPABASE_URL="https://qetmnrwqjvztabgnxsfm.supabase.co", SUPABASE_KEY="sb_publishable_eStjvXkEvzvZVvoxW1Lagg_F9vT3QD1";
-const money=n=>Number(n||0).toLocaleString('th-TH',{minimumFractionDigits:2,maximumFractionDigits:2});
+const money=n=>Math.round(Number(n||0)).toLocaleString('th-TH');
 const num=n=>Number(n||0);
 const today=new Date().toISOString().slice(0,10), ym=today.slice(0,7);
-let sb=null,cars=[],txs=[];
+let sb=null,cars=[],txs=[],docs=[];
 monthStart.value=ym; monthEnd.value=ym; txDate.value=today;
 
 function status(t,ok=false){onlineStatus.textContent=t;onlineStatus.style.color=ok?'#047857':'#dc2626'}
@@ -101,6 +115,10 @@ async function loadData(){
  if(tr.error){alert('โหลดรายการไม่ได้: '+tr.error.message);status('Load ไม่สำเร็จ');return}
  cars=sortCars((cr.data||[]).map(c=>({id:c.id,code:c.code||'',model:c.model||'',plate:c.plate||'',buyDate:c.buy_date||'',buyPrice:num(c.buy_price),status:c.status||'',note:c.note||''})));
  txs=(tr.data||[]).map(t=>({id:t.id,date:t.date||'',carId:t.car_id||'',type:t.type||'expense',category:t.category||'',amount:num(t.amount),pay:t.pay||'',note:t.note||''}));
+ let dr=await sb.from('car_documents').select('*').order('created_at',{ascending:false});
+ if(dr.error){docs=[]; console.warn('โหลดเอกสารไม่ได้:',dr.error.message)}else{
+  docs=(dr.data||[]).map(d=>({id:d.id,carId:d.car_id,docType:d.doc_type||'',fileName:d.file_name||'',filePath:d.file_path||'',fileUrl:d.file_url||'',note:d.note||'',createdAt:d.created_at||''}));
+ }
  status('Online: Load เรียบร้อย',true); renderAll();
 }
 
@@ -128,7 +146,11 @@ function toggleCarSelection(el){
 function selectAllCars(){selectedCarSet=new Set(activeCars().map(c=>c.id));renderAll()}
 function clearCarSelection(){selectedCarSet.clear();renderAll()}
 
-function renderSelects(){txCar.innerHTML=sortCars(cars).map(c=>`<option value="${c.id}">${c.code} - ${c.model}</option>`).join('')||'<option value="">กรุณาเพิ่มรถก่อน</option>'}
+function renderSelects(){
+ let opts=sortCars(cars).map(c=>`<option value="${c.id}">${c.code} - ${c.model}</option>`).join('')||'<option value="">กรุณาเพิ่มรถก่อน</option>';
+ txCar.innerHTML=opts;
+ if(typeof docCar!=='undefined') docCar.innerHTML=opts;
+}
 function renderSummary(){
  let stx=selectedTxs(), sc=selectedCars(), inc=stx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0), exp=stx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0), cost=sc.reduce((s,c)=>s+c.buyPrice,0), net=inc-exp-cost;
  summaryCards.innerHTML=`<div class="card"><div class="label">รายรับรถที่เลือก</div><div class="value profit">฿${money(inc)}</div></div><div class="card"><div class="label">รายจ่ายรถที่เลือก</div><div class="value loss">฿${money(exp)}</div></div><div class="card"><div class="label">ต้นทุนรถที่เลือก</div><div class="value">฿${money(cost)}</div></div><div class="card"><div class="label">กำไรสุทธิรถที่เลือก</div><div class="value ${net>=0?'profit':'loss'}">฿${money(net)}</div></div>`;
@@ -178,6 +200,51 @@ function editTx(id){let t=txs.find(x=>x.id===id);if(!t)return;editingTxId.value=
 function resetTxForm(){txForm.reset();editingTxId.value='';txDate.value=today;txFormTitle.textContent='บันทึกรายรับ–รายจ่าย';txSubmitBtn.textContent='บันทึกรายการ Online'}
 async function deleteTx(id){if(!confirm('ลบรายการนี้?'))return;if(!sb&&!connect())return;let r=await sb.from('transactions').delete().eq('id',id);if(r.error)alert(r.error.message);await loadData()}
 
+
+docForm.onsubmit=async e=>{
+ e.preventDefault();
+ if(!sb&&!connect())return;
+ if(!docCar.value){alert('กรุณาเลือกรถ');return}
+ const files=[...docFiles.files];
+ if(!files.length){alert('กรุณาเลือกไฟล์อย่างน้อย 1 ไฟล์');return}
+ for(const file of files){
+  const safeName=file.name.replace(/[^\w.\-\u0E00-\u0E7F]/g,'_');
+  const filePath=`${docCar.value}/${Date.now()}_${safeName}`;
+  const up=await sb.storage.from('car-documents').upload(filePath,file,{upsert:false});
+  if(up.error){alert('อัปโหลดไฟล์ไม่ได้: '+up.error.message);return}
+  const pub=sb.storage.from('car-documents').getPublicUrl(filePath);
+  const ins=await sb.from('car_documents').insert({
+   car_id:docCar.value,
+   doc_type:docType.value.trim(),
+   file_name:file.name,
+   file_path:filePath,
+   file_url:pub.data.publicUrl,
+   note:docNote.value.trim()
+  });
+  if(ins.error){alert('บันทึกข้อมูลเอกสารไม่ได้: '+ins.error.message);return}
+ }
+ docForm.reset();
+ await loadData();
+ alert('อัปโหลดเอกสารเรียบร้อย');
+}
+
+function renderDocs(){
+ if(typeof docTable==='undefined')return;
+ if(!docs.length){docTable.innerHTML='<p class="note">ยังไม่มีเอกสาร</p>';return}
+ docTable.innerHTML=`<table><thead><tr><th>รถ</th><th>ประเภท</th><th>ชื่อไฟล์</th><th>หมายเหตุ</th><th>เปิดไฟล์</th><th class="no-print">จัดการ</th></tr></thead><tbody>`+
+  docs.map(d=>{let c=cars.find(x=>x.id===d.carId);return `<tr><td>${c?c.code+'<br><span class="note">'+c.model+'</span>':'-'}</td><td>${d.docType||'-'}</td><td>${d.fileName}</td><td>${d.note||''}</td><td><a href="${d.fileUrl}" target="_blank">เปิด / ดาวน์โหลด</a></td><td class="no-print"><button class="danger" onclick="deleteDoc('${d.id}','${d.filePath}')">ลบ</button></td></tr>`}).join('')+
+  `</tbody></table>`;
+}
+
+async function deleteDoc(id,filePath){
+ if(!confirm('ลบเอกสารนี้?'))return;
+ if(!sb&&!connect())return;
+ await sb.storage.from('car-documents').remove([filePath]);
+ const r=await sb.from('car_documents').delete().eq('id',id);
+ if(r.error){alert('ลบข้อมูลเอกสารไม่ได้: '+r.error.message);return}
+ await loadData();
+}
+
 function exportExcel(){let wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(carPLRows().map(r=>({'รถ':r.code,'รุ่น':r.model,'ต้นทุน':r.buyPrice,'รายรับเฉพาะคัน':r.income,'รายจ่ายเฉพาะคัน':r.expense,'กำไรสุทธิ':r.net}))),'สรุปตามรถที่เลือก');XLSX.utils.book_append_sheet(wb,XLSX.utils.json_to_sheet(monthlyRows().map(r=>({'เดือน':r.month,'รายรับทั้งหมด':r.income,'รายจ่ายทั้งหมด':r.expense,'คงเหลือ':r.net}))),'สรุปรายเดือนทั้งหมด');XLSX.writeFile(wb,`EMMIE_Report_${monthStart.value}_${monthEnd.value}.xlsx`)}
 function printReport(){showTab('report',document.querySelectorAll('.tab')[2]);setTimeout(()=>window.print(),150)}
 
@@ -192,7 +259,7 @@ function renderSoldReport(){
  let net=totalIncome-totalExpense-totalCost;
  soldReport.innerHTML=`<div class="grid"><div class="card"><div class="label">รถขายแล้ว</div><div class="value">${sold.length} คัน</div></div><div class="card"><div class="label">รายรับรถขายแล้ว</div><div class="value profit">฿${money(totalIncome)}</div></div><div class="card"><div class="label">รายจ่ายรถขายแล้ว</div><div class="value loss">฿${money(totalExpense)}</div></div><div class="card"><div class="label">กำไรสุทธิรถขายแล้ว</div><div class="value ${net>=0?'profit':'loss'}">฿${money(net)}</div></div></div>`+txTableHtml(list,false);
 }
-function renderAll(){renderChecks();renderSelects();renderSummary();renderCars();renderTxs();renderCarPL();renderMonthly();renderSoldReport()}
+function renderAll(){renderChecks();renderSelects();renderSummary();renderCars();renderTxs();renderCarPL();renderMonthly();renderSoldReport();renderDocs()}
 renderAll();connect();loadData();
 </script>
 </body></html>
