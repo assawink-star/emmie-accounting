@@ -40,7 +40,7 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:11px;bor
 
 <div class="grid" id="summaryCards"></div>
 
-<div class="tabs no-print"><button class="tab active" onclick="showTab('cars',this)">1. เพิ่มรถ</button><button class="tab" onclick="showTab('tx',this)">2. รายรับ-รายจ่าย</button><button class="tab" onclick="showTab('report',this)">3. หน้าสรุป</button></div>
+<div class="tabs no-print"><button class="tab active" onclick="showTab('cars',this)">1. เพิ่มรถ</button><button class="tab" onclick="showTab('tx',this)">2. รายรับ-รายจ่าย</button><button class="tab" onclick="showTab('report',this)">3. หน้าสรุป</button><button class="tab" onclick="showTab('documents',this)">4. เอกสารประจำรถ</button></div>
 
 <section id="cars" class="section active card">
 <h2 id="carFormTitle">เพิ่มข้อมูลรถ</h2>
@@ -55,18 +55,6 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:11px;bor
 <div class="field full"><label>หมายเหตุ</label><textarea id="carNote"></textarea></div>
 <div class="full actions"><button class="primary" type="submit" id="carSubmitBtn">บันทึกรถ Online</button><button class="muted" type="button" onclick="resetCarForm()">ยกเลิกแก้ไข</button></div>
 </form>
-
-<div class="subbox">
-  <h3>เก็บเอกสารสัญญาซื้อขาย / เอกสารประจำรถ</h3>
-  <form id="docForm">
-    <div class="field"><label>เลือกรถ</label><select id="docCar" required></select></div>
-    <div class="field"><label>ประเภทเอกสาร</label><input id="docType" placeholder="สัญญาซื้อขาย / ใบโอน / สำเนาบัตร / สลิป"></div>
-    <div class="field"><label>เลือกไฟล์หลายไฟล์</label><input id="docFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"></div>
-    <div class="field full"><label>หมายเหตุเอกสาร</label><textarea id="docNote" placeholder="รายละเอียดเอกสาร"></textarea></div>
-    <div class="full actions"><button class="primary" type="submit">อัปโหลดเอกสาร Online</button></div>
-  </form>
-  <div id="docTable"></div>
-</div>
 
 <div id="carTable"></div>
 </section>
@@ -92,6 +80,24 @@ table{width:100%;border-collapse:collapse;margin-top:10px}th,td{padding:11px;bor
 <div class="subbox"><h3>2) สรุปรายเดือนตามช่วงเดือนที่เลือกทั้งหมด</h3><p class="note">ส่วนนี้รวมทุกคันที่มีรายการในช่วงเดือน ไม่จำกัดเฉพาะรถที่ติ๊กเลือก</p><div id="monthlyTable"></div></div>
 <div class="subbox"><h3>3) รายการรับ–จ่ายของรถที่เลือก</h3><div id="txReportSelected"></div></div><div class="subbox"><h3>4) รถขายแล้ว / ค่าใช้จ่ายรถขายแล้ว</h3><p class="note">ส่วนนี้เก็บแยกไว้ดูย้อนหลัง ไม่ปนกับรถในสต๊อก</p><div id="soldReport"></div></div>
 </section>
+
+
+<section id="documents" class="section card">
+  <h2>4. เอกสารประจำรถ</h2>
+  <div class="subbox">
+  <h3>เก็บเอกสารสัญญาซื้อขาย / เอกสารประจำรถ</h3><p class="note">พิมพ์ค้นหาเลขสต๊อก / รุ่น / ทะเบียน แล้วตารางด้านล่างจะแสดงเฉพาะเอกสารของรถที่เลือกเท่านั้น</p>
+  <form id="docForm">
+    <div class="field"><label>ค้นหารถ</label><input id="docCarSearch" placeholder="พิมพ์เลขสต๊อก / รุ่น / ทะเบียน เช่น 01, C220d, 3ขข" oninput="renderSelects(); renderDocs();"></div>
+<div class="field"><label>เลือกรถ</label><select id="docCar" required></select></div>
+    <div class="field"><label>ประเภทเอกสาร</label><input id="docType" placeholder="สัญญาซื้อขาย / ใบโอน / สำเนาบัตร / สลิป"></div>
+    <div class="field"><label>เลือกไฟล์หลายไฟล์</label><input id="docFiles" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx,.xls,.xlsx"></div>
+    <div class="field full"><label>หมายเหตุเอกสาร</label><textarea id="docNote" placeholder="รายละเอียดเอกสาร"></textarea></div>
+    <div class="full actions"><button class="primary" type="submit">อัปโหลดเอกสาร Online</button></div>
+  </form>
+  <div id="docTable"></div>
+</div>
+</section>
+
 </main>
 
 <script>
@@ -147,9 +153,20 @@ function selectAllCars(){selectedCarSet=new Set(activeCars().map(c=>c.id));rende
 function clearCarSelection(){selectedCarSet.clear();renderAll()}
 
 function renderSelects(){
- let opts=sortCars(cars).map(c=>`<option value="${c.id}">${c.code} - ${c.model}</option>`).join('')||'<option value="">กรุณาเพิ่มรถก่อน</option>';
- txCar.innerHTML=opts;
- if(typeof docCar!=='undefined') docCar.innerHTML=opts;
+ let allOpts=sortCars(cars).map(c=>`<option value="${c.id}">${c.code} - ${c.model}</option>`).join('')||'<option value="">กรุณาเพิ่มรถก่อน</option>';
+ txCar.innerHTML=allOpts;
+
+ if(typeof docCar!=='undefined'){
+  const current = docCar.value;
+  const keyword = (typeof docCarSearch!=='undefined' ? docCarSearch.value.trim().toLowerCase() : '');
+  let filteredCars = sortCars(cars).filter(c=>{
+    const text = `${c.code} ${c.model} ${c.plate} ${c.status}`.toLowerCase();
+    return !keyword || text.includes(keyword);
+  });
+  docCar.innerHTML = filteredCars.map(c=>`<option value="${c.id}">${c.code} - ${c.model}${c.plate ? ' | ' + c.plate : ''}</option>`).join('') || '<option value="">ไม่พบรถที่ค้นหา</option>';
+  if(filteredCars.some(c=>c.id===current)) docCar.value=current;
+  docCar.onchange=renderDocs;
+ }
 }
 function renderSummary(){
  let stx=selectedTxs(), sc=selectedCars(), inc=stx.filter(t=>t.type==='income').reduce((s,t)=>s+t.amount,0), exp=stx.filter(t=>t.type==='expense').reduce((s,t)=>s+t.amount,0), cost=sc.reduce((s,c)=>s+c.buyPrice,0), net=inc-exp-cost;
@@ -175,7 +192,7 @@ function monthlyRows(){let rows={};monthlyAllTxs().forEach(t=>{let m=t.date.slic
 function renderMonthly(){let rows=monthlyRows();monthlyTable.innerHTML=rows.length?`<table><thead><tr><th>เดือน</th><th class="right">รายรับทั้งหมด</th><th class="right">รายจ่ายทั้งหมด</th><th class="right">คงเหลือก่อนต้นทุนซื้อเข้า</th></tr></thead><tbody>${rows.map(r=>`<tr><td>${r.month}</td><td class="right profit">${money(r.income)}</td><td class="right loss">${money(r.expense)}</td><td class="right ${r.net>=0?'profit':'loss'}">${money(r.net)}</td></tr>`).join('')}</tbody></table>`:'<p class="note">ยังไม่มีข้อมูลรายเดือนในช่วงที่เลือก</p>'}
 
 carForm.onsubmit=async e=>{e.preventDefault();if(!sb&&!connect())return;let id=editingCarId.value,p={code:carCode.value.trim(),model:carModel.value.trim(),plate:carPlate.value.trim(),buy_date:buyDate.value||null,buy_price:num(buyPrice.value),status:carStatus.value,note:carNote.value.trim()};let r=id?await sb.from('cars').update(p).eq('id',id):await sb.from('cars').insert(p);if(r.error){alert('บันทึกรถไม่ได้: '+r.error.message);return}resetCarForm();await loadData()}
-function editCar(id){let c=cars.find(x=>x.id===id);if(!c)return;editingCarId.value=id;carCode.value=c.code;carModel.value=c.model;carPlate.value=c.plate;buyDate.value=c.buyDate;buyPrice.value=c.buyPrice;carStatus.value=c.status;carNote.value=c.note;carFormTitle.textContent='แก้ไขข้อมูลรถ';carSubmitBtn.textContent='อัปเดตรถ Online';window.scrollTo({top:0,behavior:'smooth'})}
+function editCar(id){let c=cars.find(x=>x.id===id);if(!c)return;editingCarId.value=id;carCode.value=c.code;carModel.value=c.model;carPlate.value=c.plate;buyDate.value=c.buyDate;buyPrice.value=c.buyPrice;carStatus.value=c.status;carNote.value=c.note;carFormTitle.textContent='แก้ไขข้อมูลรถ';carSubmitBtn.textContent='อัปเดตรถ Online';document.getElementById('cars').scrollIntoView({behavior:'smooth',block:'start'})}
 function resetCarForm(){carForm.reset();editingCarId.value='';carFormTitle.textContent='เพิ่มข้อมูลรถ';carSubmitBtn.textContent='บันทึกรถ Online'}
 async function deleteCar(id){if(!confirm('ลบรถคันนี้และรายการของรถคันนี้?'))return;if(!sb&&!connect())return;await sb.from('transactions').delete().eq('car_id',id);let r=await sb.from('cars').delete().eq('id',id);if(r.error)alert(r.error.message);await loadData()}
 
@@ -196,7 +213,7 @@ function markCarActive(id){
 }
 
 txForm.onsubmit=async e=>{e.preventDefault();if(!sb&&!connect())return;let id=editingTxId.value,p={date:txDate.value,car_id:txCar.value,type:txType.value,category:txCategory.value.trim(),amount:num(txAmount.value),pay:txPay.value.trim(),note:txNote.value.trim()};let r=id?await sb.from('transactions').update(p).eq('id',id):await sb.from('transactions').insert(p);if(r.error){alert('บันทึกรายการไม่ได้: '+r.error.message);return}resetTxForm();await loadData()}
-function editTx(id){let t=txs.find(x=>x.id===id);if(!t)return;editingTxId.value=id;txDate.value=t.date;txCar.value=t.carId;txType.value=t.type;txCategory.value=t.category;txAmount.value=t.amount;txPay.value=t.pay;txNote.value=t.note;txFormTitle.textContent='แก้ไขรายรับ–รายจ่าย';txSubmitBtn.textContent='อัปเดตรายการ Online';showTab('tx',document.querySelectorAll('.tab')[1]);window.scrollTo({top:0,behavior:'smooth'})}
+function editTx(id){let t=txs.find(x=>x.id===id);if(!t)return;editingTxId.value=id;txDate.value=t.date;txCar.value=t.carId;txType.value=t.type;txCategory.value=t.category;txAmount.value=t.amount;txPay.value=t.pay;txNote.value=t.note;txFormTitle.textContent='แก้ไขรายรับ–รายจ่าย';txSubmitBtn.textContent='อัปเดตรายการ Online';showTab('tx',document.querySelectorAll('.tab')[1]);document.getElementById('tx').scrollIntoView({behavior:'smooth',block:'start'})}
 function resetTxForm(){txForm.reset();editingTxId.value='';txDate.value=today;txFormTitle.textContent='บันทึกรายรับ–รายจ่าย';txSubmitBtn.textContent='บันทึกรายการ Online'}
 async function deleteTx(id){if(!confirm('ลบรายการนี้?'))return;if(!sb&&!connect())return;let r=await sb.from('transactions').delete().eq('id',id);if(r.error)alert(r.error.message);await loadData()}
 
@@ -230,9 +247,19 @@ docForm.onsubmit=async e=>{
 
 function renderDocs(){
  if(typeof docTable==='undefined')return;
- if(!docs.length){docTable.innerHTML='<p class="note">ยังไม่มีเอกสาร</p>';return}
- docTable.innerHTML=`<table><thead><tr><th>รถ</th><th>ประเภท</th><th>ชื่อไฟล์</th><th>หมายเหตุ</th><th>เปิดไฟล์</th><th class="no-print">จัดการ</th></tr></thead><tbody>`+
-  docs.map(d=>{let c=cars.find(x=>x.id===d.carId);return `<tr><td>${c?c.code+'<br><span class="note">'+c.model+'</span>':'-'}</td><td>${d.docType||'-'}</td><td>${d.fileName}</td><td>${d.note||''}</td><td><a href="${d.fileUrl}" target="_blank">เปิด / ดาวน์โหลด</a></td><td class="no-print"><button class="danger" onclick="deleteDoc('${d.id}','${d.filePath}')">ลบ</button></td></tr>`}).join('')+
+ const currentCarId = docCar ? docCar.value : '';
+ const filteredDocs = currentCarId ? docs.filter(d=>d.carId===currentCarId) : [];
+ const selectedCar = cars.find(c=>c.id===currentCarId);
+ if(!currentCarId){
+  docTable.innerHTML='<p class="note">กรุณาเลือกรถเพื่อดูเอกสารของรถคันนั้น</p>';
+  return;
+ }
+ if(!filteredDocs.length){
+  docTable.innerHTML=`<p class="note">ยังไม่มีเอกสารของรถ ${selectedCar ? selectedCar.code + ' - ' + selectedCar.model : ''}</p>`;
+  return;
+ }
+ docTable.innerHTML=`<h4>เอกสารของรถ: ${selectedCar ? selectedCar.code + ' - ' + selectedCar.model : ''}</h4><table><thead><tr><th>ประเภท</th><th>ชื่อไฟล์</th><th>หมายเหตุ</th><th>เปิดไฟล์</th><th class="no-print">จัดการ</th></tr></thead><tbody>`+
+  filteredDocs.map(d=>`<tr><td>${d.docType||'-'}</td><td>${d.fileName}</td><td>${d.note||''}</td><td><a href="${d.fileUrl}" target="_blank">เปิด / ดาวน์โหลด</a></td><td class="no-print"><button class="danger" onclick="deleteDoc('${d.id}','${d.filePath}')">ลบ</button></td></tr>`).join('')+
   `</tbody></table>`;
 }
 
